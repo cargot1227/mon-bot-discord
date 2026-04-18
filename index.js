@@ -22,7 +22,7 @@ client.on('guildMemberAdd', (member) => {
     .setTitle('🎉 Nouveau membre !')
     .setDescription(`Bienvenue **${member.user.username}** sur le serveur !\nNous sommes maintenant **${member.guild.memberCount}** membres.`)
     .setThumbnail(member.user.displayAvatarURL({ dynamic: true, size: 256, extension: 'png' }))
-    .setImage('https://imgur.com/a/qa3O9ul')  // ← remplacez par une URL d'image
+    .setImage('https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSASt2uDyQqNz8H8vBAdrRzsDi9l0K7CK_CMg&s')  // ← remplacez par une URL d'image
     .setColor('#57F287')
     .setFooter({ text: `ID : ${member.user.id}` })
     .setTimestamp();
@@ -39,7 +39,7 @@ client.on('guildMemberRemove', (member) => {
     .setTitle('👋 Départ')
     .setDescription(`**${member.user.username}** a quitté le serveur.\nNous sommes maintenant **${member.guild.memberCount}** membres.`)
     .setThumbnail(member.user.displayAvatarURL({ dynamic: true, size: 256, extension: 'png' }))
-    .setImage('https://imgur.com/a/qa3O9ul')  // ← remplacez par une URL d'image
+    .setImage('https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSASt2uDyQqNz8H8vBAdrRzsDi9l0K7CK_CMg&s')  // ← remplacez par une URL d'image
     .setColor('#ED4245')
     .setFooter({ text: `ID : ${member.user.id}` })
     .setTimestamp();
