@@ -244,50 +244,6 @@ client.on('guildMemberUpdate', async (oldMember, newMember) => {
   }
 });
 
-// ——— Salons créés ———
-client.on('channelCreate', async (channel) => {
-  const embed = new EmbedBuilder()
-    .setTitle('📂 Salon créé')
-    .addFields(
-      { name: 'Nom', value: channel.name, inline: true },
-      { name: 'Type', value: channel.type.toString(), inline: true },
-    )
-    .setColor('#57F287')
-    .setTimestamp();
-
-  await envoyerLog(channel.guild, embed);
-});
-
-// ——— Salons supprimés ———
-client.on('channelDelete', async (channel) => {
-  const embed = new EmbedBuilder()
-    .setTitle('🗑️ Salon supprimé')
-    .addFields(
-      { name: 'Nom', value: channel.name, inline: true },
-      { name: 'Type', value: channel.type.toString(), inline: true },
-    )
-    .setColor('#ED4245')
-    .setTimestamp();
-
-  await envoyerLog(channel.guild, embed);
-});
-
-// ——— Salons renommés ———
-client.on('channelUpdate', async (oldChannel, newChannel) => {
-  if (oldChannel.name === newChannel.name) return;
-
-  const embed = new EmbedBuilder()
-    .setTitle('✏️ Salon renommé')
-    .addFields(
-      { name: 'Avant', value: oldChannel.name, inline: true },
-      { name: 'Après', value: newChannel.name, inline: true },
-    )
-    .setColor('#FEE75C')
-    .setTimestamp();
-
-  await envoyerLog(newChannel.guild, embed);
-});
-
 // ——— Système de tickets ———
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits } = require('discord.js');
 
