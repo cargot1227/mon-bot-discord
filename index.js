@@ -331,11 +331,11 @@ client.on('interactionCreate', async (interaction) => {
     }
 
     // Trouve la catégorie ASSISTANCE
-    const categorie = guild.channels.cache.find(c => c.name === 'ASSISTANCE' && c.type === 4);
+    const categorie = guild.channels.cache.find(c => c.name === '🎫 ASSISTANCE' && c.type === 4);
 
     // Trouve les rôles staff
-    const roleMaire = guild.roles.cache.find(r => r.name === 'Maire 🏛️');
-    const roleAdjoint = guild.roles.cache.find(r => r.name === 'Adjoint du maire 📊');
+    const roleMaire = guild.roles.cache.find(r => r.name === 'Maire');
+    const roleAdjoint = guild.roles.cache.find(r => r.name === 'Adjoint du maire');
 
     // Crée le salon du ticket
     const salonTicket = await guild.channels.create({
