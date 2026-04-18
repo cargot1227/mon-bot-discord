@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, EmbedBuilder, PermissionFlagsBits, ChannelType } = require('discord.js');
+const { Client, GatewayIntentBits, EmbedBuilder, ChannelType } = require('discord.js');
 
 const client = new Client({
   intents: [
@@ -10,44 +10,37 @@ const client = new Client({
   ]
 });
 
+const salonsPrives = new Map();
+
 client.once('ready', () => {
   console.log(`Bot connecté en tant que ${client.user.tag} !`);
 });
 
-// Stocke les salons créés automatiquement
-const salonsPrives = new Map();
-
 // ——— Création automatique du salon vocal ———
 client.on('voiceStateUpdate', async (oldState, newState) => {
-  const salonCreer = newState.guild.channels.cache.find(c => c.name === '➕ 𝑪𝒓𝒆́𝒆𝒓-𝒖𝒏-𝑺𝒂𝒍𝒐𝒏');
+  const salonCreer = newState.guild.channels.cache.find(c => c.name === '➕-Créer-un-Salon');
 
-  // Quand quelqu'un rejoint "Créer-un-Salon"
   if (newState.channelId === salonCreer?.id) {
     const membre = newState.member;
 
-    // Crée le salon vocal dans la même catégorie
     const nouveauSalon = await newState.guild.channels.create({
       name: `🔊 ${membre.user.username}`,
       type: ChannelType.GuildVoice,
       parent: salonCreer.parentId,
     });
 
-    // Déplace le membre dans le nouveau salon
     await membre.voice.setChannel(nouveauSalon);
-
-    // Stocke le salon et son propriétaire
     salonsPrives.set(nouveauSalon.id, membre.id);
 
-    // Envoie un message dans le chat du salon vocal
     const embed = new EmbedBuilder()
       .setTitle('🎙️ Salon vocal privé')
       .setDescription(`Bienvenue **${membre.user.username}** ! Voici les commandes disponibles :`)
       .addFields(
-        { name: '🔒 `!lock`', value: 'Verrouille le salon (personne ne peut rejoindre)' },
-        { name: '🔓 `!unlock`', value: 'Déverrouille le salon' },
-        { name: '👤 `!invite @pseudo`', value: 'Invite une personne dans le salon' },
-        { name: '👢 `!kick @pseudo`', value: 'Expulse une personne du salon' },
-        { name: '✏️ `!rename nouveau nom`', value: 'Renomme le salon' },
+        { name: '🔒 `/lock`', value: 'Verrouille le salon' },
+        { name: '🔓 `/unlock`', value: 'Déverrouille le salon' },
+        { name: '👤 `/invite @pseudo`', value: 'Invite une personne' },
+        { name: '👢 `/kick @pseudo`', value: 'Expulse une personne' },
+        { name: '✏️ `/rename nouveau nom`', value: 'Renomme le salon' },
       )
       .setColor('#5865F2')
       .setFooter({ text: 'Le salon se supprime automatiquement quand il est vide.' });
@@ -55,7 +48,6 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
     await nouveauSalon.send({ embeds: [embed] });
   }
 
-  // Supprime le salon quand il est vide
   if (oldState.channelId && salonsPrives.has(oldState.channelId)) {
     const salon = oldState.guild.channels.cache.get(oldState.channelId);
     if (salon && salon.members.size === 0) {
@@ -65,68 +57,52 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
   }
 });
 
-// ——— Commandes de gestion du salon ———
-client.on('messageCreate', async (message) => {
-  if (message.author.bot) return;
+// ——— Commandes slash ———
+client.on('interactionCreate', async (interaction) => {
+  if (!interaction.isChatInputCommand()) return;
 
-  const membre = message.member;
+  const membre = interaction.member;
   const salonVocal = membre?.voice?.channel;
+  const estProprietaire = salonVocal && salonsPrives.get(salonVocal.id) === interaction.user.id;
 
-  // Vérifie que l'auteur est bien le propriétaire du salon
-  const estProprietaire = salonVocal && salonsPrives.get(salonVocal.id) === message.author.id;
-
-  // !lock
-  if (message.content === '!lock') {
-    if (!estProprietaire) return message.reply('❌ Tu n\'es pas le propriétaire de ce salon !');
-    await salonVocal.permissionOverwrites.edit(message.guild.roles.everyone, {
-      Connect: false
-    });
-    message.reply('🔒 Salon verrouillé !');
+  if (interaction.commandName === 'bonjour') {
+    return interaction.reply('Bonjour ! 👋');
   }
 
-  // !unlock
-  if (message.content === '!unlock') {
-    if (!estProprietaire) return message.reply('❌ Tu n\'es pas le propriétaire de ce salon !');
-    await salonVocal.permissionOverwrites.edit(message.guild.roles.everyone, {
-      Connect: true
-    });
-    message.reply('🔓 Salon déverrouillé !');
+  if (interaction.commandName === 'lock') {
+    if (!estProprietaire) return interaction.reply({ content: '❌ Tu n\'es pas le propriétaire de ce salon !', ephemeral: true });
+    await salonVocal.permissionOverwrites.edit(interaction.guild.roles.everyone, { Connect: false });
+    return interaction.reply('🔒 Salon verrouillé !');
   }
 
-  // !invite @pseudo
-  if (message.content.startsWith('!invite')) {
-    if (!estProprietaire) return message.reply('❌ Tu n\'es pas le propriétaire de ce salon !');
-    const cible = message.mentions.members.first();
-    if (!cible) return message.reply('❌ Mentionne un membre à inviter !');
+  if (interaction.commandName === 'unlock') {
+    if (!estProprietaire) return interaction.reply({ content: '❌ Tu n\'es pas le propriétaire de ce salon !', ephemeral: true });
+    await salonVocal.permissionOverwrites.edit(interaction.guild.roles.everyone, { Connect: true });
+    return interaction.reply('🔓 Salon déverrouillé !');
+  }
+
+  if (interaction.commandName === 'invite') {
+    if (!estProprietaire) return interaction.reply({ content: '❌ Tu n\'es pas le propriétaire de ce salon !', ephemeral: true });
+    const cible = interaction.options.getMember('membre');
     await salonVocal.permissionOverwrites.edit(cible, { Connect: true });
-    message.reply(`✅ **${cible.user.username}** peut maintenant rejoindre le salon !`);
+    return interaction.reply(`✅ **${cible.user.username}** peut maintenant rejoindre le salon !`);
   }
 
-  // !kick @pseudo
-  if (message.content.startsWith('!kick')) {
-    if (!estProprietaire) return message.reply('❌ Tu n\'es pas le propriétaire de ce salon !');
-    const cible = message.mentions.members.first();
-    if (!cible) return message.reply('❌ Mentionne un membre à expulser !');
+  if (interaction.commandName === 'kick') {
+    if (!estProprietaire) return interaction.reply({ content: '❌ Tu n\'es pas le propriétaire de ce salon !', ephemeral: true });
+    const cible = interaction.options.getMember('membre');
     if (cible.voice.channelId === salonVocal.id) {
       await cible.voice.disconnect();
-      message.reply(`👢 **${cible.user.username}** a été expulsé du salon !`);
-    } else {
-      message.reply('❌ Ce membre n\'est pas dans votre salon !');
+      return interaction.reply(`👢 **${cible.user.username}** a été expulsé !`);
     }
+    return interaction.reply({ content: '❌ Ce membre n\'est pas dans votre salon !', ephemeral: true });
   }
 
-  // !rename
-  if (message.content.startsWith('!rename')) {
-    if (!estProprietaire) return message.reply('❌ Tu n\'es pas le propriétaire de ce salon !');
-    const nouveauNom = message.content.slice(8).trim();
-    if (!nouveauNom) return message.reply('❌ Indique un nouveau nom !');
+  if (interaction.commandName === 'rename') {
+    if (!estProprietaire) return interaction.reply({ content: '❌ Tu n\'es pas le propriétaire de ce salon !', ephemeral: true });
+    const nouveauNom = interaction.options.getString('nom');
     await salonVocal.setName(nouveauNom);
-    message.reply(`✅ Salon renommé en **${nouveauNom}** !`);
-  }
-
-  // !bonjour
-  if (message.content === '!bonjour') {
-    message.reply('Bonjour ! 👋');
+    return interaction.reply(`✅ Salon renommé en **${nouveauNom}** !`);
   }
 });
 
