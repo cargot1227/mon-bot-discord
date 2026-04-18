@@ -288,4 +288,222 @@ client.on('channelUpdate', async (oldChannel, newChannel) => {
   await envoyerLog(newChannel.guild, embed);
 });
 
+// ——— Système de tickets ———
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits } = require('discord.js');
+
+// Commande pour envoyer le message avec le bouton dans 🎫-Tickets
+// Tapez /setup-tickets dans Discord pour initialiser
+async function setupTickets(guild) {
+  const salonTickets = guild.channels.cache.find(c => c.name === '🎫-𝑻𝒊𝒄𝒌𝒆𝒕𝒔');
+  if (!salonTickets) return;
+
+  const embed = new EmbedBuilder()
+    .setTitle('🎫 Système de tickets')
+    .setDescription('Cliquez sur le bouton ci-dessous pour ouvrir un ticket.\nUn salon privé sera créé pour vous.')
+    .setColor('#5865F2')
+    .setFooter({ text: 'Un seul ticket par personne.' });
+
+  const bouton = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('creer_ticket')
+      .setLabel('📩 Ouvrir un ticket')
+      .setStyle(ButtonStyle.Primary)
+  );
+
+  await salonTickets.send({ embeds: [embed], components: [bouton] });
+}
+
+// Stocke les tickets ouverts
+const ticketsOuverts = new Map();
+
+client.on('interactionCreate', async (interaction) => {
+  // ——— Bouton : Créer un ticket ———
+  if (interaction.isButton() && interaction.customId === 'creer_ticket') {
+    const guild = interaction.guild;
+    const membre = interaction.member;
+
+    // Vérifie si le membre a déjà un ticket ouvert
+    if (ticketsOuverts.has(membre.id)) {
+      return interaction.reply({
+        content: `❌ Tu as déjà un ticket ouvert : <#${ticketsOuverts.get(membre.id)}>`,
+        ephemeral: true
+      });
+    }
+
+    // Trouve la catégorie ASSISTANCE
+    const categorie = guild.channels.cache.find(c => c.name === 'ASSISTANCE' && c.type === 4);
+
+    // Trouve les rôles staff
+    const roleMaire = guild.roles.cache.find(r => r.name === 'Maire 🏛️');
+    const roleAdjoint = guild.roles.cache.find(r => r.name === 'Adjoint du maire 📊');
+
+    // Crée le salon du ticket
+    const salonTicket = await guild.channels.create({
+      name: `ticket-${membre.user.username}`,
+      type: 0,
+      parent: categorie?.id,
+      permissionOverwrites: [
+        {
+          id: guild.roles.everyone,
+          deny: [PermissionFlagsBits.ViewChannel],
+        },
+        {
+          id: membre.id,
+          allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages],
+        },
+        roleMaire && {
+          id: roleMaire.id,
+          allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages],
+        },
+        roleAdjoint && {
+          id: roleAdjoint.id,
+          allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages],
+        },
+      ].filter(Boolean),
+    });
+
+    ticketsOuverts.set(membre.id, salonTicket.id);
+
+    // Message de bienvenue dans le ticket
+    const embedTicket = new EmbedBuilder()
+      .setTitle('🎫 Ticket ouvert')
+      .setDescription(`Bonjour **${membre.user.username}** !\nUn membre du staff va vous répondre rapidement.\n\nDécrivez votre problème ci-dessous.`)
+      .setColor('#5865F2')
+      .setTimestamp();
+
+    const boutonsTicket = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('fermer_ticket')
+        .setLabel('🔒 Fermer le ticket')
+        .setStyle(ButtonStyle.Danger),
+      new ButtonBuilder()
+        .setCustomId('archiver_ticket')
+        .setLabel('📁 Archiver')
+        .setStyle(ButtonStyle.Secondary),
+    );
+
+    await salonTicket.send({
+      content: `${membre} | ${roleMaire || ''} ${roleAdjoint || ''}`,
+      embeds: [embedTicket],
+      components: [boutonsTicket]
+    });
+
+    return interaction.reply({
+      content: `✅ Ton ticket a été créé : <#${salonTicket.id}>`,
+      ephemeral: true
+    });
+  }
+
+  // ——— Bouton : Fermer le ticket ———
+  if (interaction.isButton() && interaction.customId === 'fermer_ticket') {
+    const salon = interaction.channel;
+
+    const embedFermer = new EmbedBuilder()
+      .setTitle('🔒 Ticket fermé')
+      .setDescription('Ce ticket va être supprimé dans **5 secondes**.\nCliquez sur 📁 Archiver pour le sauvegarder avant.')
+      .setColor('#ED4245')
+      .setTimestamp();
+
+    const boutonArchiver = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('archiver_ticket')
+        .setLabel('📁 Archiver avant suppression')
+        .setStyle(ButtonStyle.Secondary),
+    );
+
+    await interaction.reply({ embeds: [embedFermer], components: [boutonArchiver] });
+
+    // Supprime le ticket après 5 secondes
+    setTimeout(async () => {
+      // Retire le ticket de la map
+      for (const [userId, channelId] of ticketsOuverts.entries()) {
+        if (channelId === salon.id) {
+          ticketsOuverts.delete(userId);
+          break;
+        }
+      }
+      await salon.delete().catch(() => {});
+    }, 5000);
+  }
+
+  // ——— Bouton : Archiver le ticket ———
+  if (interaction.isButton() && interaction.customId === 'archiver_ticket') {
+    const salon = interaction.channel;
+    const guild = interaction.guild;
+
+    const salonArchives = guild.channels.cache.find(c => c.name === '📁-𝑨𝒓𝒄𝒉𝒊𝒗𝒆𝒔-𝑻𝒊𝒄𝒌𝒆𝒕𝒔');
+    if (!salonArchives) return interaction.reply({ content: '❌ Salon d\'archives introuvable !', ephemeral: true });
+
+    // Récupère les 100 derniers messages
+    const messages = await salon.messages.fetch({ limit: 100 });
+    const historique = messages.reverse().map(m =>
+      `[${new Date(m.createdTimestamp).toLocaleString('fr-FR')}] ${m.author.tag} : ${m.content}`
+    ).join('\n');
+
+    const embedArchive = new EmbedBuilder()
+      .setTitle(`📁 Archive : ${salon.name}`)
+      .setDescription(`**Archivé par :** ${interaction.user.tag}\n**Date :** ${new Date().toLocaleString('fr-FR')}`)
+      .setColor('#FEE75C')
+      .setTimestamp();
+
+    // Envoie le résumé + historique dans les archives
+    await salonArchives.send({ embeds: [embedArchive] });
+    await salonArchives.send(`\`\`\`\n${historique.slice(0, 1900) || 'Aucun message'}\n\`\`\``);
+
+    await interaction.reply({ content: '✅ Ticket archivé !', ephemeral: true });
+  }
+
+  // ——— Commandes slash existantes ———
+  if (!interaction.isChatInputCommand()) return;
+
+  const membre = interaction.member;
+  const salonVocal = membre?.voice?.channel;
+  const estProprietaire = salonVocal && salonsPrives.get(salonVocal.id) === interaction.user.id;
+
+  if (interaction.commandName === 'setup-tickets') {
+    await setupTickets(interaction.guild);
+    return interaction.reply({ content: '✅ Message de tickets envoyé !', ephemeral: true });
+  }
+
+  if (interaction.commandName === 'bonjour') {
+    return interaction.reply('Bonjour ! 👋');
+  }
+
+  if (interaction.commandName === 'lock') {
+    if (!estProprietaire) return interaction.reply({ content: '❌ Tu n\'es pas le propriétaire de ce salon !', ephemeral: true });
+    await salonVocal.permissionOverwrites.edit(interaction.guild.roles.everyone, { Connect: false });
+    return interaction.reply('🔒 Salon verrouillé !');
+  }
+
+  if (interaction.commandName === 'unlock') {
+    if (!estProprietaire) return interaction.reply({ content: '❌ Tu n\'es pas le propriétaire de ce salon !', ephemeral: true });
+    await salonVocal.permissionOverwrites.edit(interaction.guild.roles.everyone, { Connect: true });
+    return interaction.reply('🔓 Salon déverrouillé !');
+  }
+
+  if (interaction.commandName === 'invite') {
+    if (!estProprietaire) return interaction.reply({ content: '❌ Tu n\'es pas le propriétaire de ce salon !', ephemeral: true });
+    const cible = interaction.options.getMember('membre');
+    await salonVocal.permissionOverwrites.edit(cible, { Connect: true });
+    return interaction.reply(`✅ **${cible.user.username}** peut maintenant rejoindre le salon !`);
+  }
+
+  if (interaction.commandName === 'kick') {
+    if (!estProprietaire) return interaction.reply({ content: '❌ Tu n\'es pas le propriétaire de ce salon !', ephemeral: true });
+    const cible = interaction.options.getMember('membre');
+    if (cible.voice.channelId === salonVocal.id) {
+      await cible.voice.disconnect();
+      return interaction.reply(`👢 **${cible.user.username}** a été expulsé !`);
+    }
+    return interaction.reply({ content: '❌ Ce membre n\'est pas dans votre salon !', ephemeral: true });
+  }
+
+  if (interaction.commandName === 'rename') {
+    if (!estProprietaire) return interaction.reply({ content: '❌ Tu n\'es pas le propriétaire de ce salon !', ephemeral: true });
+    const nouveauNom = interaction.options.getString('nom');
+    await salonVocal.setName(nouveauNom);
+    return interaction.reply(`✅ Salon renommé en **${nouveauNom}** !`);
+  }
+});
+
 client.login(process.env.TOKEN_DISCORD);
