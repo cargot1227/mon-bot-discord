@@ -1,7 +1,6 @@
 const { REST, Routes, SlashCommandBuilder } = require('discord.js');
 
 const commands = [
-
   new SlashCommandBuilder()
   .setName('setup-tickets')
   .setDescription('Envoie le message de tickets dans le salon 🎫'),
