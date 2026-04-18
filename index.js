@@ -7,6 +7,7 @@ const client = new Client({
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildVoiceStates
+    GatewayIntentBits.GuildModeration
   ]
 });
 
@@ -136,6 +137,155 @@ client.on('guildMemberRemove', (member) => {
     .setTimestamp();
 
   salon.send({ embeds: [embed] });
+});
+
+// ——— Fonction utilitaire pour envoyer les logs ———
+async function envoyerLog(guild, embed) {
+  const salonLog = guild.channels.cache.find(c => c.name === '📁log-bot');
+  if (salonLog) await salonLog.send({ embeds: [embed] });
+}
+
+// ——— Messages modifiés ———
+client.on('messageUpdate', async (oldMessage, newMessage) => {
+  if (!oldMessage.content || oldMessage.content === newMessage.content) return;
+  if (oldMessage.author?.bot) return;
+
+  const embed = new EmbedBuilder()
+    .setTitle('✏️ Message modifié')
+    .addFields(
+      { name: 'Auteur', value: `${oldMessage.author}`, inline: true },
+      { name: 'Salon', value: `${oldMessage.channel}`, inline: true },
+      { name: 'Avant', value: oldMessage.content || 'Inconnu' },
+      { name: 'Après', value: newMessage.content || 'Inconnu' },
+    )
+    .setColor('#FEE75C')
+    .setTimestamp();
+
+  await envoyerLog(oldMessage.guild, embed);
+});
+
+// ——— Messages supprimés ———
+client.on('messageDelete', async (message) => {
+  if (message.author?.bot) return;
+
+  const embed = new EmbedBuilder()
+    .setTitle('🗑️ Message supprimé')
+    .addFields(
+      { name: 'Auteur', value: `${message.author}`, inline: true },
+      { name: 'Salon', value: `${message.channel}`, inline: true },
+      { name: 'Contenu', value: message.content || 'Inconnu (message trop ancien)' },
+    )
+    .setColor('#ED4245')
+    .setTimestamp();
+
+  await envoyerLog(message.guild, embed);
+});
+
+// ——— Bans ———
+client.on('guildBanAdd', async (ban) => {
+  const embed = new EmbedBuilder()
+    .setTitle('🔨 Membre banni')
+    .addFields(
+      { name: 'Membre', value: `${ban.user.tag}`, inline: true },
+      { name: 'ID', value: ban.user.id, inline: true },
+      { name: 'Raison', value: ban.reason || 'Aucune raison fournie' },
+    )
+    .setThumbnail(ban.user.displayAvatarURL())
+    .setColor('#ED4245')
+    .setTimestamp();
+
+  await envoyerLog(ban.guild, embed);
+});
+
+// ——— Débans ———
+client.on('guildBanRemove', async (ban) => {
+  const embed = new EmbedBuilder()
+    .setTitle('✅ Membre débanni')
+    .addFields(
+      { name: 'Membre', value: `${ban.user.tag}`, inline: true },
+      { name: 'ID', value: ban.user.id, inline: true },
+    )
+    .setThumbnail(ban.user.displayAvatarURL())
+    .setColor('#57F287')
+    .setTimestamp();
+
+  await envoyerLog(ban.guild, embed);
+});
+
+// ——— Changements de rôles ———
+client.on('guildMemberUpdate', async (oldMember, newMember) => {
+  const rolesAjoutes = newMember.roles.cache.filter(r => !oldMember.roles.cache.has(r.id));
+  const rolesSupprime = oldMember.roles.cache.filter(r => !newMember.roles.cache.has(r.id));
+
+  if (rolesAjoutes.size > 0) {
+    const embed = new EmbedBuilder()
+      .setTitle('👑 Rôle ajouté')
+      .addFields(
+        { name: 'Membre', value: `${newMember}`, inline: true },
+        { name: 'Rôle ajouté', value: rolesAjoutes.map(r => r.name).join(', '), inline: true },
+      )
+      .setColor('#57F287')
+      .setTimestamp();
+
+    await envoyerLog(newMember.guild, embed);
+  }
+
+  if (rolesSupprime.size > 0) {
+    const embed = new EmbedBuilder()
+      .setTitle('👑 Rôle retiré')
+      .addFields(
+        { name: 'Membre', value: `${newMember}`, inline: true },
+        { name: 'Rôle retiré', value: rolesSupprime.map(r => r.name).join(', '), inline: true },
+      )
+      .setColor('#ED4245')
+      .setTimestamp();
+
+    await envoyerLog(newMember.guild, embed);
+  }
+});
+
+// ——— Salons créés ———
+client.on('channelCreate', async (channel) => {
+  const embed = new EmbedBuilder()
+    .setTitle('📂 Salon créé')
+    .addFields(
+      { name: 'Nom', value: channel.name, inline: true },
+      { name: 'Type', value: channel.type.toString(), inline: true },
+    )
+    .setColor('#57F287')
+    .setTimestamp();
+
+  await envoyerLog(channel.guild, embed);
+});
+
+// ——— Salons supprimés ———
+client.on('channelDelete', async (channel) => {
+  const embed = new EmbedBuilder()
+    .setTitle('🗑️ Salon supprimé')
+    .addFields(
+      { name: 'Nom', value: channel.name, inline: true },
+      { name: 'Type', value: channel.type.toString(), inline: true },
+    )
+    .setColor('#ED4245')
+    .setTimestamp();
+
+  await envoyerLog(channel.guild, embed);
+});
+
+// ——— Salons renommés ———
+client.on('channelUpdate', async (oldChannel, newChannel) => {
+  if (oldChannel.name === newChannel.name) return;
+
+  const embed = new EmbedBuilder()
+    .setTitle('✏️ Salon renommé')
+    .addFields(
+      { name: 'Avant', value: oldChannel.name, inline: true },
+      { name: 'Après', value: newChannel.name, inline: true },
+    )
+    .setColor('#FEE75C')
+    .setTimestamp();
+
+  await envoyerLog(newChannel.guild, embed);
 });
 
 client.login(process.env.TOKEN_DISCORD);
