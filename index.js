@@ -17,7 +17,7 @@ client.once('ready', () => {
   console.log(`Bot connecté en tant que ${client.user.tag} !`);
 });
 
-// ——— Création automatique du salon vocal  ———
+// ——— Création automatique du salon vocal ———
 client.on('voiceStateUpdate', async (oldState, newState) => {
   const salonCreer = newState.guild.channels.cache.find(c => c.name === '➕-Créer-un-Salon');
 
