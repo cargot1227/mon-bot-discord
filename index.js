@@ -109,7 +109,7 @@ client.on('interactionCreate', async (interaction) => {
 
 // ——— Messages de bienvenue et départ ———
 client.on('guildMemberAdd', (member) => {
-  const salon = member.guild.channels.cache.find(c => c.name === '🚪-𝑨𝒓𝒓𝒊𝒗𝒆́𝒆𝒔-𝑫𝒆́𝒑𝒂𝒓𝒕𝒔');
+  const salon = member.guild.channels.cache.get('1495108633757876294');
   if (!salon) return;
 
   const embed = new EmbedBuilder()
@@ -124,7 +124,7 @@ client.on('guildMemberAdd', (member) => {
 });
 
 client.on('guildMemberRemove', (member) => {
-  const salon = member.guild.channels.cache.find(c => c.name === '🚪-𝑨𝒓𝒓𝒊𝒗𝒆́𝒆𝒔-𝑫𝒆́𝒑𝒂𝒓𝒕𝒔');
+  const salon = member.guild.channels.cache.get('1495108633757876294');
   if (!salon) return;
 
   const embed = new EmbedBuilder()
@@ -408,8 +408,21 @@ client.on('interactionCreate', async (interaction) => {
     await interaction.reply({ content: '✅ Ticket archivé !', ephemeral: true });
   }
 
-  // ——— Système de sanctions ———
-const sanctions = new Map(); // { userId: [{ type, raison, moderateur, date }] }
+// ——— Système de sanctions ———
+const fs = require('fs');
+
+function chargerSanctions() {
+  if (!fs.existsSync('./sanctions.json')) return new Map();
+  const data = JSON.parse(fs.readFileSync('./sanctions.json', 'utf8'));
+  return new Map(Object.entries(data));
+}
+
+function sauvegarderSanctions() {
+  const data = Object.fromEntries(sanctions);
+  fs.writeFileSync('./sanctions.json', JSON.stringify(data, null, 2));
+}
+
+const sanctions = chargerSanctions();
 
 function ajouterSanction(userId, type, raison, moderateur) {
   if (!sanctions.has(userId)) sanctions.set(userId, []);
@@ -419,6 +432,7 @@ function ajouterSanction(userId, type, raison, moderateur) {
     moderateur,
     date: new Date().toLocaleString('fr-FR')
   });
+  sauvegarderSanctions();
 }
 
 function parseDuree(duree) {
