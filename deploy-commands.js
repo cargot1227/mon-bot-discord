@@ -43,7 +43,7 @@ const commands = [
     .addStringOption(option => option.setName('id').setDescription('L\'ID du membre à débannir').setRequired(true)),
 
   new SlashCommandBuilder()
-    .setName('kick')
+    .setName('expulser')
     .setDescription('Expulser un membre du serveur')
     .addUserOption(option => option.setName('membre').setDescription('Le membre à expulser').setRequired(true))
     .addStringOption(option => option.setName('raison').setDescription('La raison').setRequired(false)),
