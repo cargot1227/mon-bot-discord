@@ -567,7 +567,7 @@ if (interaction.commandName === 'unmute') {
 }
 
 // /kick
-if (interaction.commandName === 'kick') {
+if (interaction.commandName === 'expulser') {
   if (!interaction.member.permissions.has(PermissionFlagsBits.KickMembers)) {
     return interaction.reply({ content: '❌ Tu n\'as pas la permission !', ephemeral: true });
   }
