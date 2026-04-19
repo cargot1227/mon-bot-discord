@@ -253,7 +253,7 @@ async function setupTickets(guild) {
   if (!salonTickets) return;
 
   const embed = new EmbedBuilder()
-    .setTitle('🎫 Système de tickets')
+    .setTitle('🎫 Tickets')
     .setDescription('Cliquez sur le bouton ci-dessous pour ouvrir un ticket.\nUn salon privé sera créé pour vous.')
     .setColor('#5865F2')
     .setFooter({ text: 'Un seul ticket par personne.' });
@@ -322,7 +322,7 @@ client.on('interactionCreate', async (interaction) => {
     // Message de bienvenue dans le ticket
     const embedTicket = new EmbedBuilder()
       .setTitle('🎫 Ticket ouvert')
-      .setDescription(`Bonjour **${membre.user.username}** !\nUn membre du staff va vous répondre rapidement.\n\nDécrivez votre problème ci-dessous.`)
+      .setDescription(`Bonjour **${membre.user.username}** !\nUn membre du staff va vous répondre rapidement.\n\nDécrie-nous au maximum votre problème pour un traitement plus rapide de la demande.`)
       .setColor('#5865F2')
       .setTimestamp();
 
