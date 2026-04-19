@@ -409,6 +409,30 @@ client.on('interactionCreate', async (interaction) => {
     await interaction.reply({ content: '✅ Ticket archivé !', ephemeral: true });
   }
 
+  // ——— Système de sanctions ———
+const sanctions = new Map(); // { userId: [{ type, raison, moderateur, date }] }
+
+function ajouterSanction(userId, type, raison, moderateur) {
+  if (!sanctions.has(userId)) sanctions.set(userId, []);
+  sanctions.get(userId).push({
+    type,
+    raison: raison || 'Aucune raison',
+    moderateur,
+    date: new Date().toLocaleString('fr-FR')
+  });
+}
+
+function parseDuree(duree) {
+  const match = duree.match(/^(\d+)(m|h|j)$/);
+  if (!match) return null;
+  const valeur = parseInt(match[1]);
+  const unite = match[2];
+  if (unite === 'm') return valeur * 60 * 1000;
+  if (unite === 'h') return valeur * 60 * 60 * 1000;
+  if (unite === 'j') return valeur * 24 * 60 * 60 * 1000;
+  return null;
+}
+
   // ——— Commandes slash existantes ———
   if (!interaction.isChatInputCommand()) return;
 
@@ -460,6 +484,186 @@ client.on('interactionCreate', async (interaction) => {
     await salonVocal.setName(nouveauNom);
     return interaction.reply(`✅ Salon renommé en **${nouveauNom}** !`);
   }
+
+  // /warn
+if (interaction.commandName === 'warn') {
+  if (!interaction.member.permissions.has(PermissionFlagsBits.ModerateMembers)) {
+    return interaction.reply({ content: '❌ Tu n\'as pas la permission !', ephemeral: true });
+  }
+  const cible = interaction.options.getMember('membre');
+  const raison = interaction.options.getString('raison');
+
+  ajouterSanction(cible.id, 'warn', raison, interaction.user.tag);
+
+  const embed = new EmbedBuilder()
+    .setTitle('⚠️ Avertissement')
+    .addFields(
+      { name: 'Membre', value: `${cible}`, inline: true },
+      { name: 'Modérateur', value: interaction.user.tag, inline: true },
+      { name: 'Raison', value: raison },
+      { name: 'Total warns', value: `${sanctions.get(cible.id).filter(s => s.type === 'warn').length}` }
+    )
+    .setThumbnail(cible.user.displayAvatarURL())
+    .setColor('#FEE75C')
+    .setTimestamp();
+
+  await envoyerLog(interaction.guild, embed);
+  await cible.send(`⚠️ Tu as reçu un avertissement sur **${interaction.guild.name}**\nRaison : ${raison}`).catch(() => {});
+  return interaction.reply({ embeds: [embed] });
+}
+
+// /mute
+if (interaction.commandName === 'mute') {
+  if (!interaction.member.permissions.has(PermissionFlagsBits.ModerateMembers)) {
+    return interaction.reply({ content: '❌ Tu n\'as pas la permission !', ephemeral: true });
+  }
+  const cible = interaction.options.getMember('membre');
+  const dureeStr = interaction.options.getString('duree');
+  const raison = interaction.options.getString('raison') || 'Aucune raison';
+  const dureeMs = parseDuree(dureeStr);
+
+  if (!dureeMs) return interaction.reply({ content: '❌ Format invalide ! Utilise : 10m, 1h, 1j', ephemeral: true });
+
+  await cible.timeout(dureeMs, raison);
+  ajouterSanction(cible.id, 'mute', `${raison} (${dureeStr})`, interaction.user.tag);
+
+  const embed = new EmbedBuilder()
+    .setTitle('🔇 Membre mute')
+    .addFields(
+      { name: 'Membre', value: `${cible}`, inline: true },
+      { name: 'Modérateur', value: interaction.user.tag, inline: true },
+      { name: 'Durée', value: dureeStr, inline: true },
+      { name: 'Raison', value: raison },
+    )
+    .setThumbnail(cible.user.displayAvatarURL())
+    .setColor('#ED4245')
+    .setTimestamp();
+
+  await envoyerLog(interaction.guild, embed);
+  await cible.send(`🔇 Tu as été mute sur **${interaction.guild.name}** pendant **${dureeStr}**\nRaison : ${raison}`).catch(() => {});
+  return interaction.reply({ embeds: [embed] });
+}
+
+// /unmute
+if (interaction.commandName === 'unmute') {
+  if (!interaction.member.permissions.has(PermissionFlagsBits.ModerateMembers)) {
+    return interaction.reply({ content: '❌ Tu n\'as pas la permission !', ephemeral: true });
+  }
+  const cible = interaction.options.getMember('membre');
+  await cible.timeout(null);
+  ajouterSanction(cible.id, 'unmute', 'Mute retiré', interaction.user.tag);
+
+  const embed = new EmbedBuilder()
+    .setTitle('🔊 Membre unmute')
+    .addFields(
+      { name: 'Membre', value: `${cible}`, inline: true },
+      { name: 'Modérateur', value: interaction.user.tag, inline: true },
+    )
+    .setColor('#57F287')
+    .setTimestamp();
+
+  await envoyerLog(interaction.guild, embed);
+  return interaction.reply({ embeds: [embed] });
+}
+
+// /kick
+if (interaction.commandName === 'kick') {
+  if (!interaction.member.permissions.has(PermissionFlagsBits.KickMembers)) {
+    return interaction.reply({ content: '❌ Tu n\'as pas la permission !', ephemeral: true });
+  }
+  const cible = interaction.options.getMember('membre');
+  const raison = interaction.options.getString('raison') || 'Aucune raison';
+
+  ajouterSanction(cible.id, 'kick', raison, interaction.user.tag);
+  await cible.send(`👢 Tu as été expulsé de **${interaction.guild.name}**\nRaison : ${raison}`).catch(() => {});
+  await cible.kick(raison);
+
+  const embed = new EmbedBuilder()
+    .setTitle('👢 Membre expulsé')
+    .addFields(
+      { name: 'Membre', value: cible.user.tag, inline: true },
+      { name: 'Modérateur', value: interaction.user.tag, inline: true },
+      { name: 'Raison', value: raison },
+    )
+    .setThumbnail(cible.user.displayAvatarURL())
+    .setColor('#ED4245')
+    .setTimestamp();
+
+  await envoyerLog(interaction.guild, embed);
+  return interaction.reply({ embeds: [embed] });
+}
+
+// /ban
+if (interaction.commandName === 'ban') {
+  if (!interaction.member.permissions.has(PermissionFlagsBits.BanMembers)) {
+    return interaction.reply({ content: '❌ Tu n\'as pas la permission !', ephemeral: true });
+  }
+  const cible = interaction.options.getMember('membre');
+  const raison = interaction.options.getString('raison') || 'Aucune raison';
+
+  ajouterSanction(cible.id, 'ban', raison, interaction.user.tag);
+  await cible.send(`🔨 Tu as été banni de **${interaction.guild.name}**\nRaison : ${raison}`).catch(() => {});
+  await cible.ban({ reason: raison });
+
+  const embed = new EmbedBuilder()
+    .setTitle('🔨 Membre banni')
+    .addFields(
+      { name: 'Membre', value: cible.user.tag, inline: true },
+      { name: 'Modérateur', value: interaction.user.tag, inline: true },
+      { name: 'Raison', value: raison },
+    )
+    .setThumbnail(cible.user.displayAvatarURL())
+    .setColor('#ED4245')
+    .setTimestamp();
+
+  await envoyerLog(interaction.guild, embed);
+  return interaction.reply({ embeds: [embed] });
+}
+
+// /unban
+if (interaction.commandName === 'unban') {
+  if (!interaction.member.permissions.has(PermissionFlagsBits.BanMembers)) {
+    return interaction.reply({ content: '❌ Tu n\'as pas la permission !', ephemeral: true });
+  }
+  const id = interaction.options.getString('id');
+  await interaction.guild.members.unban(id).catch(() => {});
+  ajouterSanction(id, 'unban', 'Déban', interaction.user.tag);
+
+  const embed = new EmbedBuilder()
+    .setTitle('✅ Membre débanni')
+    .addFields(
+      { name: 'ID', value: id, inline: true },
+      { name: 'Modérateur', value: interaction.user.tag, inline: true },
+    )
+    .setColor('#57F287')
+    .setTimestamp();
+
+  await envoyerLog(interaction.guild, embed);
+  return interaction.reply({ embeds: [embed] });
+}
+
+// /history
+if (interaction.commandName === 'history') {
+  const cible = interaction.options.getUser('membre');
+  const historique = sanctions.get(cible.id);
+
+  if (!historique || historique.length === 0) {
+    return interaction.reply({ content: `✅ **${cible.tag}** n'a aucune sanction.`, ephemeral: true });
+  }
+
+  const liste = historique.map((s, i) =>
+    `**${i + 1}.** ${s.type.toUpperCase()} — ${s.raison}\n👮 ${s.moderateur} | 📅 ${s.date}`
+  ).join('\n\n');
+
+  const embed = new EmbedBuilder()
+    .setTitle(`📋 Sanctions de ${cible.tag}`)
+    .setDescription(liste)
+    .setThumbnail(cible.displayAvatarURL())
+    .setColor('#5865F2')
+    .setTimestamp();
+
+  return interaction.reply({ embeds: [embed], ephemeral: true });
+}
 });
 
 client.login(process.env.TOKEN_DISCORD);
