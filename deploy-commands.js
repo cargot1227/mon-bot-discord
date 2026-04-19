@@ -14,6 +14,46 @@ const commands = [
     .setDescription('Déverrouille votre salon vocal'),
 
   new SlashCommandBuilder()
+    .setName('warn')
+    .setDescription('Avertir un membre')
+    .addUserOption(option => option.setName('membre').setDescription('Le membre à avertir').setRequired(true))
+    .addStringOption(option => option.setName('raison').setDescription('La raison').setRequired(true)),
+
+  new SlashCommandBuilder()
+    .setName('mute')
+    .setDescription('Rendre muet un membre')
+    .addUserOption(option => option.setName('membre').setDescription('Le membre à mute').setRequired(true))
+    .addStringOption(option => option.setName('duree').setDescription('Durée (ex: 10m, 1h, 1j)').setRequired(true))
+    .addStringOption(option => option.setName('raison').setDescription('La raison').setRequired(false)),
+
+  new SlashCommandBuilder()
+    .setName('unmute')
+    .setDescription('Retirer le mute d\'un membre')
+    .addUserOption(option => option.setName('membre').setDescription('Le membre à unmute').setRequired(true)),
+
+  new SlashCommandBuilder()
+    .setName('ban')
+    .setDescription('Bannir un membre')
+    .addUserOption(option => option.setName('membre').setDescription('Le membre à bannir').setRequired(true))
+    .addStringOption(option => option.setName('raison').setDescription('La raison').setRequired(false)),
+
+  new SlashCommandBuilder()
+    .setName('unban')
+    .setDescription('Débannir un membre')
+    .addStringOption(option => option.setName('id').setDescription('L\'ID du membre à débannir').setRequired(true)),
+
+  new SlashCommandBuilder()
+    .setName('kick')
+    .setDescription('Expulser un membre du serveur')
+    .addUserOption(option => option.setName('membre').setDescription('Le membre à expulser').setRequired(true))
+    .addStringOption(option => option.setName('raison').setDescription('La raison').setRequired(false)),
+
+  new SlashCommandBuilder()
+    .setName('history')
+    .setDescription('Voir l\'historique des sanctions d\'un membre')
+    .addUserOption(option => option.setName('membre').setDescription('Le membre').setRequired(true)),
+
+  new SlashCommandBuilder()
     .setName('invite')
     .setDescription('Invite un membre dans votre salon vocal')
     .addUserOption(option =>
